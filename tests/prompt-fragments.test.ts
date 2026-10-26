@@ -25,7 +25,7 @@ describe("escalationContract (#582)", () => {
   });
 
   it("backward-compat const matches the historical flash phrasing", () => {
-    expect(ESCALATION_CONTRACT).toBe(escalationContract("deepseek-v4-flash"));
+    expect(ESCALATION_CONTRACT).toBe(escalationContract("deepseek-flash"));
   });
 
   it("treats unknown future tiers as non-pro (full contract, name themselves)", () => {

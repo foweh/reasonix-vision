@@ -6,9 +6,10 @@ export const DEEPSEEK_PRICING: Record<
   string,
   { inputCacheHit: number; inputCacheMiss: number; output: number }
 > = {
-  "deepseek-v4-flash": { inputCacheHit: 0.0028, inputCacheMiss: 0.14, output: 0.28 },
+  "deepseek-flash": { inputCacheHit: 0.0028, inputCacheMiss: 0.14, output: 0.28 },
   "deepseek-v4-pro": { inputCacheHit: 0.003625, inputCacheMiss: 0.435, output: 0.87 },
-  // Compat aliases — priced as v4-flash per the deprecation notice.
+  // Compat aliases — priced as deepseek-flash per the deprecation notice.
+  "deepseek-v4-flash": { inputCacheHit: 0.0028, inputCacheMiss: 0.14, output: 0.28 },
   "deepseek-chat": { inputCacheHit: 0.0028, inputCacheMiss: 0.14, output: 0.28 },
   "deepseek-reasoner": { inputCacheHit: 0.0028, inputCacheMiss: 0.14, output: 0.28 },
 };
@@ -35,8 +36,9 @@ export const CLAUDE_SONNET_PRICING = { input: 3.0, output: 15.0 };
 
 /** Prompt-side window only; completion caps live server-side and don't affect this gauge. */
 export const DEEPSEEK_CONTEXT_TOKENS: Record<string, number> = {
-  "deepseek-v4-flash": 1_000_000,
+  "deepseek-flash": 1_000_000,
   "deepseek-v4-pro": 1_000_000,
+  "deepseek-v4-flash": 1_000_000,
   "deepseek-chat": 1_000_000,
   "deepseek-reasoner": 1_000_000,
 };

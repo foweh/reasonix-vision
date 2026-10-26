@@ -2081,7 +2081,7 @@ function TabRuntime({
                 }
                 busyElapsedMs={elapsed}
                 textareaRef={composerRef}
-                modelLabel={state.settings?.model ?? "deepseek-v4-flash"}
+                modelLabel={state.settings?.model ?? "deepseek-flash"}
                 reasoningEffort={state.settings?.reasoningEffort ?? "high"}
                 onModelChange={(model) => {
                   saveSettings({ model });

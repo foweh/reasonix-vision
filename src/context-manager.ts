@@ -275,7 +275,7 @@ export class ContextManager {
     messagesToSummarize: ChatMessage[],
     pinnedSkillNames: string[],
   ): Promise<{ content: string; reasoningContent: string }> {
-    const summaryModel = "deepseek-v4-flash";
+    const summaryModel = "deepseek-flash";
     const healed = healLoadedMessages(messagesToSummarize, DEFAULT_MAX_RESULT_CHARS).messages;
     const agentSystem = this.deps.getSystemPrompt();
     const fewShots = this.deps.getFewShots?.() ?? [];

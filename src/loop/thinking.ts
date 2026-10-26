@@ -1,7 +1,8 @@
 /** True when the model emits reasoning_content and requires it round-tripped on follow-ups. */
 export function isThinkingModeModel(model: string): boolean {
   if (model.includes("reasoner")) return true;
-  if (model === "deepseek-v4-flash" || model === "deepseek-v4-pro") return true;
+  if (model === "deepseek-flash" || model === "deepseek-v4-pro") return true;
+  if (model === "deepseek-v4-flash") return true;
   return false;
 }
 
@@ -9,7 +10,8 @@ export function isThinkingModeModel(model: string): boolean {
 export function thinkingModeForModel(model: string): "enabled" | "disabled" | undefined {
   if (model === "deepseek-chat") return "disabled";
   if (model.includes("reasoner")) return "enabled";
-  if (model === "deepseek-v4-flash" || model === "deepseek-v4-pro") return "enabled";
+  if (model === "deepseek-flash" || model === "deepseek-v4-pro") return "enabled";
+  if (model === "deepseek-v4-flash") return "enabled";
   return undefined;
 }
 

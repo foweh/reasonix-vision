@@ -22,7 +22,7 @@ const CONFIG_TABS = [
         name: '~/.reasonix/config.json',
         lang: 'json',
         code: `{
-  "model": "deepseek-v4-flash",
+  "model": "deepseek-flash",
   "mcpServers": {
     "github": {
       "command": "npx",
@@ -166,7 +166,7 @@ Only focus on the code touched by this diff — don't go off-topic.`,
         lang: 'json',
         code: `{
   "apiKey": "sk-***",
-  "model": "deepseek-v4-flash",
+  "model": "deepseek-flash",
   "preset": "balanced",
   "effort": "medium",
   "theme": "ember",

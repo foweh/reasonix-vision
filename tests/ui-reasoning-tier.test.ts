@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 import { modelBadgeFor } from "../src/cli/ui/primitives/Pill.js";
 
 describe("modelBadgeFor", () => {
-  it("maps deepseek-v4-flash to flash class", () => {
+  it("maps deepseek-flash (V4.1) to flash class", () => {
+    expect(modelBadgeFor("deepseek-flash")).toEqual({ label: "flash", kind: "flash" });
+  });
+
+  it("maps the pre-V4.1 deepseek-v4-flash id to flash class", () => {
     expect(modelBadgeFor("deepseek-v4-flash")).toEqual({ label: "v4-flash", kind: "flash" });
   });
 

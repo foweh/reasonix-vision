@@ -328,7 +328,7 @@ function emitServerSettings(settings: any, overview?: any): void {
     budgetUsd: settings?.budgetUsd ?? overview?.budgetUsd ?? null,
     workspaceDir: overview?.cwd ?? "",
     recentWorkspaces: [],
-    model: overview?.model ?? settings?.model ?? "deepseek-v4-flash",
+    model: overview?.model ?? settings?.model ?? "deepseek-flash",
     editor: "code",
     webSearchEngine: settings?.webSearchEngine ?? "bing",
     subagentModels: settings?.subagentModels ?? {},
@@ -1094,7 +1094,7 @@ const mockSettings = {
   budgetUsd: null,
   workspaceDir: "",
   recentWorkspaces: [],
-  model: "deepseek-v4-flash",
+  model: "deepseek-flash",
   version: "0.47.2",
 };
 

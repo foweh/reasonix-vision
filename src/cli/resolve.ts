@@ -5,6 +5,7 @@ import {
   isReasoningEffort,
   loadReasoningEffort,
   normalizeMcpConfig,
+  normalizeModelId,
   readConfig,
 } from "../config.js";
 import { loadDotMcpJson } from "../mcp/dot-mcp-json.js";
@@ -30,7 +31,7 @@ export interface RawCliFlags {
 
 export function resolveDefaults(flags: RawCliFlags): ResolvedDefaults {
   const cfg: ReasonixConfig = flags.noConfig ? {} : readConfig();
-  const model = flags.model?.trim() || cfg.model?.trim() || DEFAULT_MODEL;
+  const model = normalizeModelId(flags.model) ?? normalizeModelId(cfg.model) ?? DEFAULT_MODEL;
 
   const flagEffort = flags.effort?.toLowerCase();
   const reasoningEffort: ReasoningEffort = isReasoningEffort(flagEffort)

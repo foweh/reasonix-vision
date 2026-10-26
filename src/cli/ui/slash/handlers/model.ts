@@ -1,6 +1,7 @@
 import {
   type ReasoningEffort,
   isReasoningEffort,
+  normalizeModelId,
   saveModel,
   saveReasoningEffort,
 } from "@/config.js";
@@ -9,7 +10,7 @@ import { effortChoicesForBaseUrl } from "../../effort-choices.js";
 import type { SlashHandler } from "../dispatch.js";
 
 const model: SlashHandler = (args, loop, ctx) => {
-  const id = args[0];
+  const id = normalizeModelId(args[0]);
   const known = ctx.models ?? null;
   if (!id) {
     return { openModelPicker: true };

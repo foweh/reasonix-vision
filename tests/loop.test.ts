@@ -1108,7 +1108,7 @@ describe("CacheFirstLoop - configure() method", () => {
       prefix: new ImmutablePrefix({ system: "s" }),
       stream: false,
     });
-    expect(loop.model).toBe("deepseek-v4-flash");
+    expect(loop.model).toBe("deepseek-flash");
     loop.configure({ model: "deepseek-v4-pro" });
     expect(loop.model).toBe("deepseek-v4-pro");
   });

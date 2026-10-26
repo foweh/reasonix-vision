@@ -24,14 +24,31 @@ import {
 /** Single trust dial: review queues edits + gates shell; auto applies + gates shell; yolo skips both gates; plan blocks every non-readonly tool (write_file / edit_file / multi_edit / run_command) at dispatch. */
 export type EditMode = "review" | "auto" | "yolo" | "plan";
 
-export const DEFAULT_MODEL = "deepseek-v4-flash";
+export const DEFAULT_MODEL = "deepseek-flash";
 
 /** Models the official api.deepseek.com endpoint currently accepts. v3-era
- *  `deepseek-chat`/`deepseek-reasoner` are gone — sending them produces a 400. */
+ *  `deepseek-chat`/`deepseek-reasoner` are gone — sending them produces a 400.
+ *  `deepseek-flash` is the V4.1 generation: same 1M window, now with image
+ *  input (`input_modalities: ["text", "image"]`). The pre-V4.1 id
+ *  `deepseek-v4-flash` still resolves server-side to the same model, so it is
+ *  kept as an alias rather than a hard break for existing config.json files. */
 export const SUPPORTED_OFFICIAL_MODELS: readonly string[] = [
-  "deepseek-v4-flash",
+  "deepseek-flash",
   "deepseek-v4-pro",
 ];
+
+/** Legacy model ids the API still accepts but no longer advertises. */
+const LEGACY_MODEL_ALIASES: Record<string, string> = {
+  "deepseek-v4-flash": "deepseek-flash",
+};
+
+/** Map a pre-rename model id onto its canonical name. Unknown ids pass through. */
+export function normalizeModelId(model: string | undefined | null): string | undefined {
+  if (typeof model !== "string") return undefined;
+  const trimmed = model.trim();
+  if (!trimmed) return undefined;
+  return LEGACY_MODEL_ALIASES[trimmed] ?? trimmed;
+}
 
 export type ReasoningEffort = "low" | "medium" | "high" | "max";
 

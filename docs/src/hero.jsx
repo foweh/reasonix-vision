@@ -4,7 +4,7 @@
 // tool calls sandboxed to launch dir.
 const buildTermScript = (version) => [
   { t: 'cmd', text: 'npx reasonix code' },
-  { t: 'out', text: `⏺ reasonix ${version} · model: deepseek-v4-flash · workspace: ~/app`, cls: 'term-info', delay: 280 },
+  { t: 'out', text: `⏺ reasonix ${version} · model: deepseek-flash · workspace: ~/app`, cls: 'term-info', delay: 280 },
   { t: 'out', text: '⏺ cache: 94.2% hit · session: 18m23s · cost: $0.043', cls: 'term-dim', delay: 220 },
   { t: 'blank' },
   { t: 'cmd', text: 'fix the case-sensitivity bug in findByEmail' },

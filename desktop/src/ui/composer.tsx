@@ -813,7 +813,7 @@ function Popup({
   );
 }
 
-const KNOWN_MODELS: readonly string[] = ["deepseek-v4-flash", "deepseek-v4-pro"];
+const KNOWN_MODELS: readonly string[] = ["deepseek-flash", "deepseek-v4-pro"];
 
 function ModelEffortMenu({
   modelLabel,
