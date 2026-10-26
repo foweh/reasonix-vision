@@ -59,6 +59,14 @@ import { SessionStats, type TurnStats } from "./telemetry/stats.js";
 import { ToolRegistry } from "./tools.js";
 import { ReadTracker } from "./tools/read-tracker.js";
 import type { ChatMessage, ToolCall } from "./types.js";
+import { type ImageAttachment, buildUserContent, modelSupportsImages } from "./vision.js";
+
+/** Per-turn inputs that ride alongside the prompt text. */
+export interface StepOptions {
+  /** Images attached to this user turn. Bytes are already base64 data URLs
+   *  (see src/vision.ts) — only models with image input actually see them. */
+  images?: readonly ImageAttachment[];
+}
 
 export const MID_TURN_STEER_WRAPPER =
   "[Mid-turn steer queued by the user. Do not treat this as a new task; use it only as additional guidance for the current task after completing the current step.]";
@@ -613,7 +621,7 @@ export class CacheFirstLoop {
     return userText;
   }
 
-  async *step(userInput: string): AsyncGenerator<LoopEvent> {
+  async *step(userInput: string, opts: StepOptions = {}): AsyncGenerator<LoopEvent> {
     // Reset per-turn flags.
     this._steerConsumed = false;
 
@@ -687,8 +695,19 @@ export class CacheFirstLoop {
     // when the user navigates away before the model responds). A failed
     // first round-trip still leaves the message in the log; the user can
     // /retry without re-typing.
+    const images = opts.images ?? [];
+    // Only `deepseek-flash` advertises image input. The pro tier accepts the
+    // request and silently drops the picture (verified against the live API),
+    // so say it out loud rather than letting the model answer blind.
+    if (images.length > 0 && !modelSupportsImages(this.model)) {
+      yield {
+        turn: this._turn,
+        role: "warning",
+        content: `model ${this.model} has no image input — ${images.length} attached image(s) will be dropped. Run /model deepseek-flash to actually use them.`,
+      };
+    }
     const turnStartLogIndex = this.log.length;
-    this.appendAndPersist({ role: "user", content: userInput });
+    this.appendAndPersist({ role: "user", content: buildUserContent(userInput, images) });
     const toolSpecs = this.prefix.tools();
     const rateLimitState = { shown: false };
 
@@ -1055,9 +1074,13 @@ export class CacheFirstLoop {
     };
   }
 
-  async run(userInput: string, onEvent?: (ev: LoopEvent) => void): Promise<string> {
+  async run(
+    userInput: string,
+    onEvent?: (ev: LoopEvent) => void,
+    opts: StepOptions = {},
+  ): Promise<string> {
     let final = "";
-    for await (const ev of this.step(userInput)) {
+    for await (const ev of this.step(userInput, opts)) {
       onEvent?.(ev);
       if (ev.role === "assistant_final") final = ev.content;
       if (ev.role === "done") break;

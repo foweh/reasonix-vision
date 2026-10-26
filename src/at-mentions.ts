@@ -10,6 +10,7 @@ import {
   loadGitignoreAt,
   loadGitignoreAtSync,
 } from "./gitignore.js";
+import { DEFAULT_MAX_IMAGE_BYTES, imageMimeForPath } from "./vision.js";
 
 /** Caps match tool-result dispatch truncation (0.5.2). */
 export const DEFAULT_AT_MENTION_MAX_BYTES = 64 * 1024;
@@ -502,6 +503,11 @@ export interface AtMentionExpansion {
   entries?: number;
   /** True iff the directory listing was clipped at maxDirEntries. */
   truncated?: boolean;
+  /** Set when the mention resolved to an image file. Images are NOT inlined as
+   *  text — the caller loads the bytes and sends an `image_url` content part. */
+  kind?: "image";
+  /** MIME type of an image mention (set together with kind="image"). */
+  mime?: string;
   /** Why the mention was skipped. Set when ok=false. */
   skip?: "missing" | "not-file" | "too-large" | "escape" | "read-error";
 }
@@ -509,6 +515,9 @@ export interface AtMentionExpansion {
 export interface AtMentionOptions {
   /** Max file size in bytes before a mention is skipped. */
   maxBytes?: number;
+  /** Max image size in bytes for an image mention. Default 10 MiB — images
+   *  travel as a base64 attachment rather than as inlined text. */
+  maxImageBytes?: number;
   /** Cap on entries returned for a `@<dir>` listing. Default {@link DEFAULT_AT_DIR_MAX_ENTRIES}. */
   maxDirEntries?: number;
   fs?: {
@@ -533,6 +542,7 @@ export function expandAtMentions(
   opts: AtMentionOptions = {},
 ): { text: string; expansions: AtMentionExpansion[] } {
   const maxBytes = opts.maxBytes ?? DEFAULT_AT_MENTION_MAX_BYTES;
+  const maxImageBytes = opts.maxImageBytes ?? DEFAULT_MAX_IMAGE_BYTES;
   const maxDirEntries = Math.max(1, opts.maxDirEntries ?? DEFAULT_AT_DIR_MAX_ENTRIES);
   const fs = opts.fs ?? defaultFs;
   const root = resolve(rootDir);
@@ -554,7 +564,15 @@ export function expandAtMentions(
     const token = `@${cleaned}`;
     if (seen.has(token)) continue;
 
-    const expansion = resolveMention(cleaned, root, maxBytes, maxDirEntries, fs, dirListings);
+    const expansion = resolveMention(
+      cleaned,
+      root,
+      maxBytes,
+      maxImageBytes,
+      maxDirEntries,
+      fs,
+      dirListings,
+    );
     seen.set(token, expansion);
     expansions.push(expansion);
   }
@@ -566,6 +584,9 @@ export function expandAtMentions(
   // both what's here and what's missing.
   const blocks: string[] = [];
   for (const ex of expansions) {
+    // Images are attached as content parts instead — a <file> block full of
+    // base64 would just burn context without adding anything.
+    if (ex.ok && ex.kind === "image") continue;
     if (ex.ok && ex.isDirectory) {
       const files = dirListings.get(ex.path) ?? [];
       const truncAttr = ex.truncated ? ' truncated="true"' : "";
@@ -588,6 +609,7 @@ function resolveMention(
   rawPath: string,
   root: string,
   maxBytes: number,
+  maxImageBytes: number,
   maxDirEntries: number,
   fs: NonNullable<AtMentionOptions["fs"]>,
   dirListings: Map<string, string[]>,
@@ -607,6 +629,22 @@ function resolveMention(
   }
   if (fs.isFile(resolved)) {
     const size = fs.size(resolved);
+    // Images get their own budget — they are attached (base64), not inlined,
+    // so the 64 KiB text cap would wrongly reject a normal screenshot.
+    const imageMime = imageMimeForPath(rawPath);
+    if (imageMime) {
+      if (size > maxImageBytes) {
+        return { token: `@${rawPath}`, path: rawPath, ok: false, skip: "too-large", bytes: size };
+      }
+      return {
+        token: `@${rawPath}`,
+        path: rawPath,
+        ok: true,
+        bytes: size,
+        kind: "image",
+        mime: imageMime,
+      };
+    }
     if (size > maxBytes) {
       return { token: `@${rawPath}`, path: rawPath, ok: false, skip: "too-large", bytes: size };
     }

@@ -105,7 +105,7 @@ import { formatSubagentResult, spawnSubagent } from "../../tools/subagent.js";
 import { webFetch } from "../../tools/web.js";
 import { openTranscriptFile } from "../../transcript/log.js";
 import type { ContentPart } from "../../types.js";
-import { contentToText } from "../../vision.js";
+import { type ImageAttachment, contentToText, loadImageAttachment } from "../../vision.js";
 import { listKnownWorkspaces, rememberWorkspace } from "../../workspaces.js";
 import { openInExternalEditor } from "../edit/external-editor.js";
 import { dumpStartupProfile, markPhase } from "../startup-profile.js";
@@ -3216,12 +3216,25 @@ function AppInner({
       // block; the Historical row above keeps the user's verbatim text
       // so the display doesn't balloon.
       let modelInput = text;
+      const imageAttachments: ImageAttachment[] = [];
       if (codeMode) {
         const expanded = expandAtMentions(text, currentRootDir);
         if (expanded.expansions.length > 0) {
           modelInput = expanded.text;
+          // `@shot.png` becomes a real image ATTACHMENT rather than an inlined
+          // text block — base64 content parts are how the model sees pixels.
+          for (const ex of expanded.expansions) {
+            if (!ex.ok || ex.kind !== "image") continue;
+            try {
+              imageAttachments.push(
+                loadImageAttachment(resolve(currentRootDir, ex.path), ex.path),
+              );
+            } catch (err) {
+              log.pushWarning("⚠ image not attached", `${ex.path}: ${(err as Error).message}`);
+            }
+          }
           const inlined = expanded.expansions
-            .filter((ex) => ex.ok)
+            .filter((ex) => ex.ok && ex.kind !== "image")
             .map((ex) => {
               if (ex.isDirectory) {
                 const trunc = ex.truncated ? "+" : "";
@@ -3234,6 +3247,12 @@ function AppInner({
             .map((ex) => `${ex.path} (${ex.skip})`);
           const parts: string[] = [];
           if (inlined.length > 0) parts.push(`inlined ${inlined.join(", ")}`);
+          if (imageAttachments.length > 0)
+            parts.push(
+              `attached ${imageAttachments.length} image(s): ${imageAttachments
+                .map((img) => img.path)
+                .join(", ")}`,
+            );
           if (skipped.length > 0) parts.push(`skipped ${skipped.join(", ")}`);
           if (parts.length > 0) log.pushInfo(t("app.atMentions", { parts: parts.join("; ") }));
         }
@@ -3275,7 +3294,7 @@ function AppInner({
 
       try {
         let lastAssistantText = "";
-        for await (const ev of loop.step(modelInput)) {
+        for await (const ev of loop.step(modelInput, { images: imageAttachments })) {
           writeTranscript(ev);
           // Mirror to the kernel event log sidecar. Pure passthrough —          // Eventizer holds the small state (turn boundary detection +
           // tool callId correlation) needed to translate LoopEvent
