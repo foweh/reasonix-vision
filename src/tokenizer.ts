@@ -6,6 +6,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { gunzipSync } from "node:zlib";
 import { LruCache } from "./core/lru.js";
+import type { ContentPart } from "./types.js";
 
 interface AddedToken {
   id: number;
@@ -512,19 +513,37 @@ function cachedBoundedTokens(s: string): number {
   return n;
 }
 
+/** Flat per-image estimate. The server tokenizes decoded pixels, not the data
+ *  URL — counting base64 as text would over-report ~100× on a 1MB photo and
+ *  make the context gauge fold history for no reason. */
+const IMAGE_PART_TOKEN_ESTIMATE = 1_000;
+
+/** Content → token estimate. Handles both the plain-string shape and the
+ *  multimodal part array (text parts are counted, image parts use the flat rate). */
+function tokensForContent(content: string | ContentPart[] | null | undefined): number {
+  if (typeof content === "string") return content.length > 0 ? cachedBoundedTokens(content) : 0;
+  if (!Array.isArray(content)) return 0;
+  let n = 0;
+  for (const part of content) {
+    if (part.type === "text") {
+      if (part.text.length > 0) n += cachedBoundedTokens(part.text);
+    } else {
+      n += IMAGE_PART_TOKEN_ESTIMATE;
+    }
+  }
+  return n;
+}
+
 function tokensForMessage(
   m: {
     role?: string;
-    content?: string | null;
+    content?: string | ContentPart[] | null;
     tool_calls?: unknown;
     reasoning_content?: string | null;
   },
   dropThisReasoning: boolean,
 ): number {
-  let n = 0;
-  if (typeof m.content === "string" && m.content.length > 0) {
-    n += cachedBoundedTokens(m.content);
-  }
+  let n = tokensForContent(m.content);
   if (m.role === "assistant") {
     if (
       !dropThisReasoning &&
@@ -545,7 +564,7 @@ function tokensForMessage(
 export function estimateConversationTokens(
   messages: Array<{
     role?: string;
-    content?: string | null;
+    content?: string | ContentPart[] | null;
     tool_calls?: unknown;
     tool_call_id?: string;
     reasoning_content?: string | null;
@@ -578,7 +597,7 @@ export function estimateConversationTokens(
 export function estimateRequestTokens(
   messages: Array<{
     role?: string;
-    content?: string | null;
+    content?: string | ContentPart[] | null;
     tool_calls?: unknown;
     tool_call_id?: string;
     reasoning_content?: string | null;

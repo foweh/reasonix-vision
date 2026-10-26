@@ -30,9 +30,25 @@ export interface ToolCall {
 
 export type Role = "system" | "user" | "assistant" | "tool";
 
+/** OpenAI-compatible multimodal content part. DeepSeek V4.1 (`deepseek-flash`)
+ *  is the first model in the family whose `input_modalities` includes `image`.
+ *  Text-only turns keep a bare string so the cached prefix stays byte-identical
+ *  for sessions that never attach an image. */
+export interface TextPart {
+  type: "text";
+  text: string;
+}
+
+export interface ImageUrlPart {
+  type: "image_url";
+  image_url: { url: string; detail?: "auto" | "low" | "high" };
+}
+
+export type ContentPart = TextPart | ImageUrlPart;
+
 export interface ChatMessage {
   role: Role;
-  content?: string | null;
+  content?: string | ContentPart[] | null;
   name?: string;
   tool_call_id?: string;
   tool_calls?: ToolCall[];

@@ -119,6 +119,7 @@ import { countTokensBounded } from "../../tokenizer.js";
 import type { ChoiceOption } from "../../tools/choice.js";
 import type { ChatMessage } from "../../types.js";
 import { VERSION } from "../../version.js";
+import { contentToText } from "../../vision.js";
 import { type McpRuntime, createMcpRuntime } from "./mcp-runtime.js";
 
 export interface DesktopOptions {
@@ -653,7 +654,7 @@ export function buildLoadedMessages(records: ChatMessage[]): LoadedMessage[] {
   for (const rec of records) {
     if (rec.role === "system") continue;
     if (rec.role === "user") {
-      out.push({ kind: "user", text: rec.content ?? "" });
+      out.push({ kind: "user", text: contentToText(rec.content) });
       pendingAssistantIdx = -1;
       continue;
     }
@@ -661,7 +662,8 @@ export function buildLoadedMessages(records: ChatMessage[]): LoadedMessage[] {
       turn++;
       const segments: LoadedSegment[] = [];
       if (rec.reasoning_content) segments.push({ kind: "reasoning", text: rec.reasoning_content });
-      if (rec.content) segments.push({ kind: "text", text: rec.content });
+      const assistantText = contentToText(rec.content);
+      if (assistantText) segments.push({ kind: "text", text: assistantText });
       if (rec.tool_calls) {
         for (let i = 0; i < rec.tool_calls.length; i++) {
           const tc = rec.tool_calls[i];
@@ -686,7 +688,7 @@ export function buildLoadedMessages(records: ChatMessage[]): LoadedMessage[] {
       if (!callId) continue;
       const seg = host.segments.find((s) => s.kind === "tool" && s.callId === callId);
       if (seg && seg.kind === "tool") {
-        seg.result = rec.content ?? "";
+        seg.result = contentToText(rec.content);
         seg.ok = !/error|failed/i.test(seg.result.slice(0, 200));
       }
     }

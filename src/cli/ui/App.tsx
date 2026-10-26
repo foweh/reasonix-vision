@@ -104,6 +104,8 @@ import { registerSkillTools } from "../../tools/skills.js";
 import { formatSubagentResult, spawnSubagent } from "../../tools/subagent.js";
 import { webFetch } from "../../tools/web.js";
 import { openTranscriptFile } from "../../transcript/log.js";
+import type { ContentPart } from "../../types.js";
+import { contentToText } from "../../vision.js";
 import { listKnownWorkspaces, rememberWorkspace } from "../../workspaces.js";
 import { openInExternalEditor } from "../edit/external-editor.js";
 import { dumpStartupProfile, markPhase } from "../startup-profile.js";
@@ -361,13 +363,13 @@ function completedCountIncludingStep(
 }
 
 function lastMessageContent(
-  entries: ReadonlyArray<{ role: string; content?: string | null }>,
+  entries: ReadonlyArray<{ role: string; content?: string | ContentPart[] | null }>,
   role: "user" | "assistant",
 ): string {
   for (let i = entries.length - 1; i >= 0; i--) {
     const entry = entries[i];
-    if (entry?.role !== role || typeof entry.content !== "string") continue;
-    const text = entry.content.trim();
+    if (entry?.role !== role) continue;
+    const text = contentToText(entry.content).trim();
     if (text) return text;
   }
   return "";
