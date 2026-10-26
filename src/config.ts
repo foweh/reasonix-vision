@@ -28,14 +28,8 @@ export const DEFAULT_MODEL = "deepseek-flash";
 
 /** Models the official api.deepseek.com endpoint currently accepts. v3-era
  *  `deepseek-chat`/`deepseek-reasoner` are gone — sending them produces a 400.
- *  `deepseek-flash` is the V4.1 generation: same 1M window, now with image
- *  input (`input_modalities: ["text", "image"]`). The pre-V4.1 id
- *  `deepseek-v4-flash` still resolves server-side to the same model, so it is
- *  kept as an alias rather than a hard break for existing config.json files. */
-export const SUPPORTED_OFFICIAL_MODELS: readonly string[] = [
-  "deepseek-flash",
-  "deepseek-v4-pro",
-];
+ *  `deepseek-flash` is the current generation and adds image input. */
+export const SUPPORTED_OFFICIAL_MODELS: readonly string[] = ["deepseek-flash", "deepseek-v4-pro"];
 
 /** Legacy model ids the API still accepts but no longer advertises. */
 const LEGACY_MODEL_ALIASES: Record<string, string> = {

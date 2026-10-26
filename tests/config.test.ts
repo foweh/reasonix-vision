@@ -221,11 +221,11 @@ describe("config", () => {
     // Regression: v3-era `deepseek-chat`/`deepseek-reasoner` lingering in
     // config — or any other unsupported id — would be sent verbatim and
     // make the first chat request 400 with "supported API model names are
-    // deepseek-v4-pro or deepseek-v4-flash, but you passed …".
+    // deepseek-v4-pro or deepseek-flash, but you passed …".
     writeConfig({ model: "deepseek-chat" }, path);
-    expect(loadModel(path)).toBe("deepseek-v4-flash");
+    expect(loadModel(path)).toBe("deepseek-flash");
     writeConfig({ model: "deepseek-made-up" }, path);
-    expect(loadModel(path)).toBe("deepseek-v4-flash");
+    expect(loadModel(path)).toBe("deepseek-flash");
   });
 
   it("loadModel passes through any persisted id when a custom baseUrl is set", () => {

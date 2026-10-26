@@ -3226,9 +3226,7 @@ function AppInner({
           for (const ex of expanded.expansions) {
             if (!ex.ok || ex.kind !== "image") continue;
             try {
-              imageAttachments.push(
-                loadImageAttachment(resolve(currentRootDir, ex.path), ex.path),
-              );
+              imageAttachments.push(loadImageAttachment(resolve(currentRootDir, ex.path), ex.path));
             } catch (err) {
               log.pushWarning("⚠ image not attached", `${ex.path}: ${(err as Error).message}`);
             }

@@ -1,11 +1,5 @@
-/** Image input for chat turns.
- *
- *  DeepSeek V4.1 (`deepseek-flash`) advertises `input_modalities: ["text","image"]`
- *  on GET /models; `deepseek-v4-pro` is text-only and silently DROPS image parts
- *  (the request still 200s, the image tokens just never get counted), so callers
- *  must warn rather than assume failure. The wire format is the standard
- *  OpenAI multimodal shape: `content: [{type:"text"},{type:"image_url",...}]`.
- */
+/** Image input for chat turns: extension→MIME, size caps, data-URL loading, content parts.
+ *  Wire format is the standard OpenAI multimodal shape DeepSeek V4.1 accepts. */
 
 import { readFileSync, statSync } from "node:fs";
 import { extname } from "node:path";
@@ -21,8 +15,8 @@ export const IMAGE_MIME_BY_EXT: Readonly<Record<string, string>> = {
   ".bmp": "image/bmp",
 };
 
-/** 10 MiB. Base64 inflates by ~4/3, and every byte of it rides in the prompt on
- *  every subsequent turn — past this the context cost outweighs the picture. */
+/** 10 MiB. Base64 inflates by ~4/3, and every byte rides in the prompt on every
+ *  later turn — past this the context cost outweighs the picture. */
 export const DEFAULT_MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 
 export interface ImageAttachment {
@@ -43,7 +37,8 @@ export function isImagePath(path: string): boolean {
   return imageMimeForPath(path) !== undefined;
 }
 
-/** Models whose `input_modalities` include `image`. Mirrors GET /models. */
+/** Models whose `input_modalities` include `image` — mirrors GET /models.
+ *  The pro tier silently drops image parts, so callers warn instead of assuming failure. */
 export function modelSupportsImages(model: string | undefined): boolean {
   return model === "deepseek-flash" || model === "deepseek-v4-flash";
 }

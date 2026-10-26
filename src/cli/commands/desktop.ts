@@ -125,7 +125,8 @@ import {
   attachmentFromDataUrl,
   contentToText,
   loadImageAttachment,
-} from "../../vision.js";import { type McpRuntime, createMcpRuntime } from "./mcp-runtime.js";
+} from "../../vision.js";
+import { type McpRuntime, createMcpRuntime } from "./mcp-runtime.js";
 
 export interface DesktopOptions {
   model: string;
