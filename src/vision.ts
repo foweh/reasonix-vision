@@ -67,6 +67,26 @@ export function loadImageAttachment(
   return { path: displayPath, mime, bytes: size, dataUrl };
 }
 
+/** Adopt an already-encoded `data:image/...;base64,...` URL — the desktop
+ *  webview hands us these straight from a File/Blob, no disk round-trip. */
+export function attachmentFromDataUrl(
+  dataUrl: string,
+  displayPath = "attached image",
+): ImageAttachment {
+  const trimmed = dataUrl.trim();
+  const match = /^data:(image\/[a-z0-9.+-]+);base64,([A-Za-z0-9+/=\s]+)$/i.exec(trimmed);
+  if (!match) throw new Error("not a base64 image data URL");
+  const mime = (match[1] ?? "").toLowerCase();
+  const payload = (match[2] ?? "").replace(/\s+/g, "");
+  // 4 base64 chars carry 3 bytes; padding trims the tail.
+  const padding = payload.endsWith("==") ? 2 : payload.endsWith("=") ? 1 : 0;
+  const bytes = Math.floor((payload.length * 3) / 4) - padding;
+  if (bytes > DEFAULT_MAX_IMAGE_BYTES) {
+    throw new Error(`image too large: ${displayPath} is ${bytes} bytes`);
+  }
+  return { path: displayPath, mime, bytes, dataUrl: trimmed };
+}
+
 /** Assemble the `content` field of a user message. Text-only collapses back to a
  *  bare string so the prompt-cache prefix is unchanged for image-free sessions. */
 export function buildUserContent(

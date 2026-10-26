@@ -7,6 +7,7 @@ import { createInterface } from "node:readline";
 import { toApprovalPrompt } from "@reasonix/core-utils";
 import {
   type FileWithStats,
+  expandAtMentions,
   listDirectory,
   listFilesWithStatsAsync,
   parseAtQuery,
@@ -119,8 +120,12 @@ import { countTokensBounded } from "../../tokenizer.js";
 import type { ChoiceOption } from "../../tools/choice.js";
 import type { ChatMessage } from "../../types.js";
 import { VERSION } from "../../version.js";
-import { contentToText } from "../../vision.js";
-import { type McpRuntime, createMcpRuntime } from "./mcp-runtime.js";
+import {
+  type ImageAttachment,
+  attachmentFromDataUrl,
+  contentToText,
+  loadImageAttachment,
+} from "../../vision.js";import { type McpRuntime, createMcpRuntime } from "./mcp-runtime.js";
 
 export interface DesktopOptions {
   model: string;
@@ -135,7 +140,7 @@ export function desktopUserAbortLoopOptions(): LoopAbortOptions | undefined {
 }
 
 type InMessage = { tabId?: string } & (
-  | { cmd: "user_input"; text: string }
+  | { cmd: "user_input"; text: string; images?: string[] }
   | { cmd: "abort" }
   | { cmd: "confirm_response"; id: number; response: ConfirmationChoice }
   | { cmd: "choice_response"; id: number; response: ChoiceVerdict }
@@ -645,6 +650,28 @@ function elideLoadedMessages(messages: LoadedMessage[]): LoadedMessage[] {
       }),
     };
   });
+}
+
+/** Resolve the desktop's `images` payload. Each entry is either a complete
+ *  `data:image/...;base64,...` URL (webview File/Blob, no disk round-trip) or a
+ *  workspace-relative path. Bad entries are dropped, not fatal. */
+function collectImages(
+  tab: { rootDir: string },
+  raw: readonly string[] | undefined,
+): ImageAttachment[] {
+  const out: ImageAttachment[] = [];
+  for (const entry of raw ?? []) {
+    try {
+      out.push(
+        entry.startsWith("data:image/")
+          ? attachmentFromDataUrl(entry)
+          : loadImageAttachment(resolve(tab.rootDir, entry), entry),
+      );
+    } catch {
+      // oversize / unreadable / wrong type — the text still stands on its own
+    }
+  }
+  return out;
 }
 
 export function buildLoadedMessages(records: ChatMessage[]): LoadedMessage[] {
@@ -1599,7 +1626,12 @@ export async function desktopCommand(opts: DesktopOptions): Promise<void> {
     emit({ type: "$tab_closed" }, tab.id);
   }
 
-  async function runTurn(tab: Tab, text: string, fromQQ = false): Promise<void> {
+  async function runTurn(
+    tab: Tab,
+    text: string,
+    fromQQ = false,
+    explicitImages: readonly ImageAttachment[] = [],
+  ): Promise<void> {
     if (!tab.runtime) return;
     const rt = tab.runtime;
     tab.aborter = new AbortController();
@@ -1637,7 +1669,22 @@ export async function desktopCommand(opts: DesktopOptions): Promise<void> {
     await tabContext.run(tab.id, async () => {
       try {
         let emittedTurnContext = false;
-        for await (const ev of rt.loop.step(text)) {
+        // `@shot.png` typed in the desktop composer: the frontend sends raw text,
+        // so image mentions are expanded here. Text mentions are left alone —
+        // the model reads those with its own tools.
+        const images = [...explicitImages];
+        if (/@[\p{L}\p{N}_./\\-]+\.(?:png|jpe?g|webp|gif|bmp)/iu.test(text)) {
+          for (const ex of expandAtMentions(text, tab.rootDir).expansions) {
+            if (!ex.ok || ex.kind !== "image") continue;
+            try {
+              images.push(loadImageAttachment(resolve(tab.rootDir, ex.path), ex.path));
+            } catch {
+              // oversize / unreadable — the mention stays in the text, the model
+              // just doesn't get the pixels
+            }
+          }
+        }
+        for await (const ev of rt.loop.step(text, { images })) {
           if (!emittedTurnContext) {
             emittedTurnContext = true;
             emitCtxBreakdown(tab);
@@ -2837,7 +2884,7 @@ export async function desktopCommand(opts: DesktopOptions): Promise<void> {
         );
         return;
       }
-      void runTurn(tab, msg.text);
+      void runTurn(tab, msg.text, false, collectImages(tab, msg.images));
     }
   });
 
