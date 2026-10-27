@@ -1,7 +1,7 @@
 /** Image input for chat turns: extension→MIME, size caps, data-URL loading, content parts.
  *  Wire format is the standard OpenAI multimodal shape DeepSeek V4.1 accepts. */
 
-import { readFileSync, statSync } from "node:fs";
+import { closeSync, fstatSync, openSync, readFileSync } from "node:fs";
 import { extname } from "node:path";
 import type { ContentPart, ImageUrlPart } from "./types.js";
 
@@ -52,14 +52,23 @@ export function loadImageAttachment(
 ): ImageAttachment {
   const mime = imageMimeForPath(absPath);
   if (!mime) throw new Error(`unsupported image type: ${displayPath}`);
-  const size = statSync(absPath).size;
-  if (size > maxBytes) {
-    throw new Error(
-      `image too large: ${displayPath} is ${size} bytes (limit ${maxBytes}); downscale it first`,
-    );
+  // fstat + read on the SAME descriptor: stat-by-path then read-by-path is a
+  // TOCTOU race (the file can be swapped between the two calls), and it also
+  // avoids slurping a huge file just to reject it.
+  const fd = openSync(absPath, "r");
+  try {
+    const size = fstatSync(fd).size;
+    if (size > maxBytes) {
+      throw new Error(
+        `image too large: ${displayPath} is ${size} bytes (limit ${maxBytes}); downscale it first`,
+      );
+    }
+    const bytes = readFileSync(fd);
+    const dataUrl = `data:${mime};base64,${bytes.toString("base64")}`;
+    return { path: displayPath, mime, bytes: bytes.length, dataUrl };
+  } finally {
+    closeSync(fd);
   }
-  const dataUrl = `data:${mime};base64,${readFileSync(absPath).toString("base64")}`;
-  return { path: displayPath, mime, bytes: size, dataUrl };
 }
 
 /** Adopt an already-encoded `data:image/...;base64,...` URL — the desktop
