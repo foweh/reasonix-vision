@@ -304,6 +304,8 @@ describe("filesystem tools (built-in, sandbox-enforced)", () => {
       expect(out).not.toContain("deep.txt");
     });
 
+    // 60 sequential writes: Windows temp FS regularly needs >5s for this, which
+    // tripped the default per-test timeout and cascaded into an ENOTEMPTY teardown.
     it("directory_tree collapses directories with >50 entries", async () => {
       await fs.mkdir(join(root, "huge"), { recursive: true });
       for (let i = 0; i < 60; i++) {
@@ -315,7 +317,7 @@ describe("filesystem tools (built-in, sandbox-enforced)", () => {
       );
       expect(out).toMatch(/\[… \d+ entries hidden/);
       expect(out).toMatch(/list_directory/);
-    });
+    }, 30_000);
   });
 
   describe("search_files", () => {

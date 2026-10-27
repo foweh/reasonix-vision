@@ -1,7 +1,10 @@
-import { readFileSync, appendFileSync } from "node:fs";
+import { appendFileSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const ROOT = new URL("..", import.meta.url).pathname;
+// `new URL(..).pathname` yields "/D:/a/x" on Windows and readFileSync then
+// resolves it against the current drive, producing "D:\\D:\\a\\x".
+const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const SUMMARY_PATH = join(ROOT, "coverage", "coverage-summary.json");
 
 const GITHUB_STEP_SUMMARY = process.env.GITHUB_STEP_SUMMARY;
@@ -40,5 +43,5 @@ const rows = [
 ];
 
 const md = `## Coverage\n\n${rows.join("\n")}\n`;
-appendFileSync(GITHUB_STEP_SUMMARY, md + "\n");
+appendFileSync(GITHUB_STEP_SUMMARY, `${md}\n`);
 console.log("Coverage summary written to job summary.");
