@@ -46,6 +46,11 @@ export default defineConfig({
     // One retry absorbs Windows scheduler hiccups in jobs.test.ts / loop.test.ts /
     // bundle-smoke (real spawns + tokenizer cold load). A real failure still re-fails.
     retry: 1,
+    // Windows runners routinely take 3-5x the Linux wall clock for the render /
+    // spawn-heavy suites, which tripped the 5s default on a different test each
+    // run. 20s keeps genuine hangs bounded without per-test whack-a-mole.
+    testTimeout: 20_000,
+    hookTimeout: 30_000,
     coverage: {
       provider: "v8",
       reporter: ["text", "html", "json-summary"],
