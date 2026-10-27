@@ -1583,21 +1583,34 @@ function TabRuntime({
           delete document.body.dataset.dragOver;
           const paths = event.payload.paths ?? [];
           if (paths.length === 0) return;
-          const mentions = paths.map((p) => {
-            const norm = p.replace(/\\/g, "/");
-            if (ws) {
-              const wsNorm = ws.replace(/\\/g, "/").replace(/\/+$/, "");
-              if (norm === wsNorm || norm.startsWith(`${wsNorm}/`)) {
-                return norm.slice(wsNorm.length).replace(/^\/+/, "") || ".";
+          // Dropped images ride as attachments; `@path` only round-trips for
+          // workspace-relative text files (absolute paths get rejected).
+          const droppedImages = paths.filter((p) => /\.(?:png|jpe?g|gif|webp)$/i.test(p));
+          if (droppedImages.length > 0) {
+            setPendingImages((prev) => [
+              ...prev,
+              ...droppedImages.filter((p) => !prev.includes(p)),
+            ]);
+          }
+          const mentions = paths
+            .filter((p) => !droppedImages.includes(p))
+            .map((p) => {
+              const norm = p.replace(/\\/g, "/");
+              if (ws) {
+                const wsNorm = ws.replace(/\\/g, "/").replace(/\/+$/, "");
+                if (norm === wsNorm || norm.startsWith(`${wsNorm}/`)) {
+                  return norm.slice(wsNorm.length).replace(/^\/+/, "") || ".";
+                }
               }
-            }
-            return norm;
-          });
-          setDraft((d) => {
-            const prefix = d.trim() ? `${d.replace(/\s+$/, "")} ` : "";
-            return `${prefix}${mentions.map((m) => `@${m}`).join(" ")} `;
-          });
-          for (const m of mentions) markMentionPicked(m);
+              return norm;
+            });
+          if (mentions.length > 0) {
+            setDraft((d) => {
+              const prefix = d.trim() ? `${d.replace(/\s+$/, "")} ` : "";
+              return `${prefix}${mentions.map((m) => `@${m}`).join(" ")} `;
+            });
+            for (const m of mentions) markMentionPicked(m);
+          }
           composerRef.current?.focus();
         });
         if (cancelled) handle();
@@ -1613,10 +1626,15 @@ function TabRuntime({
     };
   }, [state.settings?.workspaceDir, markMentionPicked]);
 
+  /** Images pasted / picked / dropped for the next turn. Absolute paths — they
+   *  ride over `user_input.images`, not into the prompt as `@path` text. */
+  const [pendingImages, setPendingImages] = useState<string[]>([]);
+
   const send = useCallback(
     (override?: string) => {
       const text = (override ?? draft).trim();
-      if (!text || !state.ready || state.busy) return;
+      if (!text && pendingImages.length === 0) return;
+      if (!state.ready || state.busy) return;
 
       const settingsCommand = parseSlashSettingsCommand(text);
       if (settingsCommand) {
@@ -1672,13 +1690,21 @@ function TabRuntime({
         }
       }
       const clientId = `c-${Date.now()}`;
-      recordAbortDraft("user_input", text);
-      dispatch({ t: "send_user", text, clientId });
-      sendRpc({ cmd: "user_input", text });
+      const images = pendingImages.length > 0 ? [...pendingImages] : undefined;
+      const shown =
+        text ||
+        (images ?? [])
+          .map((p) => p.replace(/\\/g, "/").split("/").pop())
+          .join(", ");
+      recordAbortDraft("user_input", shown);
+      dispatch({ t: "send_user", text: shown, clientId });
+      sendRpc({ cmd: "user_input", text, images });
+      if (images) setPendingImages([]);
       if (!override) setDraft("");
     },
     [
       draft,
+      pendingImages,
       state.ready,
       state.busy,
       state.skills,
@@ -2518,6 +2544,11 @@ function TabRuntime({
                   setDraft("");
                 }}
                 onDequeueSend={(index) => dispatch({ t: "dequeue_send", index })}
+                imageAttachments={pendingImages}
+                onAttachImage={(p) =>
+                  setPendingImages((prev) => (prev.includes(p) ? prev : [...prev, p]))
+                }
+                onRemoveImage={(p) => setPendingImages((prev) => prev.filter((x) => x !== p))}
               />
             </>
           )}

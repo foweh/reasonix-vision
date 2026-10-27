@@ -154,6 +154,9 @@ export function Composer({
   queuedSends,
   onQueueWhileBusy,
   onDequeueSend,
+  imageAttachments,
+  onAttachImage,
+  onRemoveImage,
 }: {
   draft: string;
   setDraft: React.Dispatch<React.SetStateAction<string>>;
@@ -182,6 +185,12 @@ export function Composer({
   /** Called when the user presses Enter while busy with a non-empty draft. Owns clearing the draft. */
   onQueueWhileBusy?: (text: string) => void;
   onDequeueSend?: (index: number) => void;
+  /** Absolute paths of images riding with the next turn. They travel as
+   *  multimodal content parts, never as `@path` text — the mention expander
+   *  rejects absolute paths, and the API wants image_url blocks anyway. */
+  imageAttachments?: readonly string[];
+  onAttachImage?: (path: string) => void;
+  onRemoveImage?: (path: string) => void;
 }) {
   const [chips, setChips] = useState<Chip[]>([]);
   const [popup, setPopup] = useState<Popup>(null);
@@ -195,6 +204,9 @@ export function Composer({
   const historyRef = useRef<string[]>([]);
   const [browseIdx, setBrowseIdx] = useState(-1);
   const savedDraftRef = useRef("");
+  // An attached image is a valid turn on its own — "what is this?" with the
+  // picture and no prose is the common paste-then-ask flow.
+  const canSendNow = draft.trim().length > 0 || (imageAttachments?.length ?? 0) > 0;
 
   const insertMention = (picked: string) => {
     const rel =
@@ -256,7 +268,8 @@ export function Composer({
             : undefined,
       });
       if (typeof picked !== "string" || !picked) return;
-      insertMention(picked);
+      if (onAttachImage) onAttachImage(picked);
+      else insertMention(picked);
     } catch (err) {
       console.error("attach failed", err);
     }
@@ -275,7 +288,8 @@ export function Composer({
         bytes: buffer,
         extension: guessImageExtension(file.type),
       });
-      insertMention(savedPath);
+      if (onAttachImage) onAttachImage(savedPath);
+      else insertMention(savedPath);
     } catch (err) {
       console.error("clipboard image paste failed", err);
     }
@@ -484,7 +498,7 @@ export function Composer({
           onQueueWhileBusy(text);
           setChips([]);
         }
-      } else if (!disabled && draft.trim()) {
+      } else if (!disabled && canSendNow) {
         recordSendAndReset();
         onSend();
         setChips([]);
@@ -505,6 +519,22 @@ export function Composer({
                 <span className="text">{text}</span>
                 {onDequeueSend ? (
                   <span className="x" onClick={() => onDequeueSend(i)}>
+                    <I.x size={10} />
+                  </span>
+                ) : null}
+              </span>
+            ))}
+          </div>
+        ) : null}
+
+        {imageAttachments && imageAttachments.length > 0 ? (
+          <div className="composer-queued">
+            {imageAttachments.map((p) => (
+              <span key={p} className="composer-queue-chip" title={p}>
+                <I.image size={11} />
+                <span className="text">{p.replace(/\\/g, "/").split("/").pop()}</span>
+                {onRemoveImage ? (
+                  <span className="x" onClick={() => onRemoveImage(p)}>
                     <I.x size={10} />
                   </span>
                 ) : null}
@@ -677,9 +707,9 @@ export function Composer({
               <button
                 type="button"
                 className="send-btn"
-                disabled={disabled || !draft.trim()}
+                disabled={disabled || !canSendNow}
                 onClick={() => {
-                  if (!disabled && draft.trim()) {
+                  if (!disabled && canSendNow) {
                     recordSendAndReset();
                     onSend();
                     setChips([]);
